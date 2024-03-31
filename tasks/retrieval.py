@@ -4,7 +4,8 @@ import argparse
 import itertools
 import sys
 
-sys.path.append('/home/gridsan/vmoro/scienceclip')    
+sys.path.append('.')
+sys.path.append('../')      
 
 import numpy as np
 import torch
@@ -14,18 +15,18 @@ import matplotlib.pyplot as plt
 from src.model.PotNet.models.potnet import PotNet
 from src.model.transformer_dos import TransformerDOS
 from src.model.ResNeXt_3D import resnext50
-from src.data.dataset.material_dataset import MatDataset
-from src.data.dataset.collate_functions import collate
-from src.utils.utils import fix_seed, switch_mode, tensors_to_device
-from scripts.configs.potnet_config import potnet_config
+from src.data.materials_project.dataset.dataset import MatDataset
+from src.data.materials_project.dataset.collate_functions import collate
+from src.utils.utils import fix_seed, switch_mode, tensros_to_device
+from config.potnet_config import potnet_config
 
 parser = argparse.ArgumentParser(description='Retrieval')
 
 # general
 parser.add_argument('--seed', type=int, default=42)
 parser.add_argument('--modalities', nargs='+', type=str, default=['crystal', 'dos', 'charge_density'], help='List of modalities for the CLIP checkpoint')
-parser.add_argument('--checkpoint_to_load', type=str, default='/home/gridsan/groups/MAML-Soljacic/scienceclip/checkpoints/potnet_anchored_clip_1e-5_train_test_split_2023-11-21__08_55_51/epoch_200.pt', help='Path to checkpoint to load')
-parser.add_argument('--projector', action=argparse.BooleanOptionalAction, default=False, help='If checkpoint has projector')
+parser.add_argument('--checkpoint_to_load', type=str, default='checkpoint.pt', help='Path to checkpoint to load')
+parser.add_argument('--projectors', action=argparse.BooleanOptionalAction, default=False, help='If checkpoint has projectors')  # NOTE: It's important to get this argument right and can be easy to miss 
 
 # data
 parser.add_argument('--train_fraction', type=float, default=0.8)
@@ -58,7 +59,9 @@ def main():
 
     # dataset
     fix_seed(args.seed)
-    dataset = MatDataset(modalities=args.modalities+['bandgap', 'efermi', 'eform'], crystal_file='crystal_potnet.pt')
+    dataset = MatDataset(
+        modalities=args.modalities+['bandgap', 'efermi', 'eform'],
+        mask_non_intersect=False)
 
     # split dataset
     train_dataset, validation_dataset, test_dataset = torch.utils.data.random_split(
@@ -96,7 +99,7 @@ def main():
     saved_state_dict = torch.load(args.checkpoint_to_load, map_location=torch.device('cpu'))
     for modality in args.modalities:
         encoders[modality].load_state_dict(saved_state_dict[f'{modality}_state_dict'])
-        if args.projector:
+        if args.projectors:
             projectors[modality].load_state_dict(saved_state_dict[f'projection_matrix_' + modality + '_state_dict'])
             encoder_with_projector = nn.Sequential(encoders[modality], projectors[modality])
             encoders[modality] = encoder_with_projector
@@ -109,13 +112,13 @@ def main():
 
     # declare eval mode
     dummy_models = {modality: nn.Identity() for modality in args.modalities}
-    switch_mode(args.modalities, [], encoders, dummy_models, None, mode='eval')
+    switch_mode(args.modalities, encoders, dummy_models, mode='eval')
 
     # get embeddings
     with torch.no_grad():
         for data in test_loader:
             # move tensors to device
-            data = tensors_to_device(args.modalities, data, device)
+            data = tensros_to_device(args.modalities, data, device)
 
             for modality in args.modalities:
                 modality_embeddings = encoders[modality](data[modality])

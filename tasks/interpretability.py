@@ -3,7 +3,8 @@
 import argparse
 import sys
 
-sys.path.append('/home/gridsan/vmoro/MultiMat')    
+sys.path.append('.')
+sys.path.append('../')    
 
 import numpy as np
 import torch
@@ -12,17 +13,19 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 from src.model.PotNet.models.potnet import PotNet
-from src.data.dataset.material_dataset import MatDataset
-from src.data.dataset.collate_functions import collate
-from src.utils.utils import fix_seed, tensors_to_device
-from scripts.configs.potnet_config import potnet_config
+from src.data.materials_project.dataset.dataset import MatDataset
+from src.data.materials_project.dataset.collate_functions import collate
+from src.utils.utils import fix_seed, tensros_to_device
+from config.potnet_config import potnet_config
 
 parser = argparse.ArgumentParser(description='Interpretability')
 
 # general
 parser.add_argument('--seed', type=int, default=42)
-parser.add_argument('--checkpoint_to_load', type=str, default='/home/gridsan/vmoro/MAML-Soljacic_shared/scienceclip/final_checkpoints/0918_potnet_tri_cryschgdendos_bs360_adamw_lr1e-5wu50wd5e-4_ep500/checkpoint.pth')
-parser.add_argument('--distributed_checkpoint', action=argparse.BooleanOptionalAction, default=True, help='If checkpoint from distributed training')
+parser.add_argument('--checkpoint_to_load', type=str, default='checkpoint.pth')
+parser.add_argument('--distributed_checkpoint', action=argparse.BooleanOptionalAction, default=False, help='If checkpoint from distributed training')   # NOTE: It's important to get this argument right and can be easy to miss
+parser.add_argument('--projectors', action=argparse.BooleanOptionalAction, default=False)   # NOTE: It's important to get this argument right and can be easy to miss
+parser.add_argument('--latent_dim', type=int, default=128)
 
 # data
 parser.add_argument('--train_fraction', type=float, default=0.8)
@@ -39,8 +42,9 @@ def main():
 
     # dataset
     fix_seed(args.seed)
-    print('On test set materials')
-    dataset = MatDataset(modalities=['crystal', 'dos', 'charge_density', 'bandgap', 'efermi', 'eform'])    
+    dataset = MatDataset(
+        modalities=['crystal', 'dos', 'charge_density', 'bandgap', 'efermi', 'eform'],
+        mask_non_intersect=False) 
 
     # split dataset
     train_dataset, validation_dataset, test_dataset = torch.utils.data.random_split(
@@ -63,12 +67,17 @@ def main():
 
     encoder = PotNet(potnet_config)
 
+    projector = torch.nn.Linear(args.latent_dim, args.latent_dim, bias=False)
+
     # load checkpoint
     saved_state_dict = torch.load(args.checkpoint_to_load, map_location=torch.device('cpu'))
     if args.distributed_checkpoint:
-        saved_state_dict[f'{args.modality}_state_dict'] = {k.replace('module.', ''): v for k, v in saved_state_dict[f'{args.modality}_state_dict'].items()}
+        saved_state_dict[f'crystal_state_dict'] = {k.replace('module.', ''): v for k, v in saved_state_dict[f'crystal_state_dict'].items()}
 
-    encoder.load_state_dict(saved_state_dict[f'{'crystal'}_state_dict'])     
+    encoder.load_state_dict(saved_state_dict[f'crystal_state_dict'])
+    if args.projectors:
+        projector.load_state_dict(saved_state_dict[f'projection_matrix_crystal_state_dict'])
+        encoder = torch.nn.Sequential(encoder, projector)     
 
     encoder = encoder.to(device)
     print(f'loaded pretrained crystal encoder from path {args.checkpoint_to_load}')
@@ -83,7 +92,7 @@ def main():
     with torch.no_grad():
         for data in test_loader:
             # move tensors to device
-            data = tensors_to_device(['crystal'], data, device)
+            data = tensros_to_device(['crystal'], data, device)
             modality_embeddings = encoder(data['crystal'])
             embeddings.append(modality_embeddings.to('cpu'))
 
@@ -103,23 +112,18 @@ def main():
     torch.save(embeddings_umap, 'embeddings_umap.pt')
     torch.save(material_ids_test, 'material_ids_umap.pt')
 
-    # data to color embeddings by
-    bandgap_values = torch.tensor([data['bandgap'] for data in test_dataset])
-    eform_values = torch.tensor([data['eform'] for data in test_dataset])
-    is_metal = torch.where(bandgap_values > 0, 1, 0)    # TODO
-    symmetry_dict = torch.load('/home/gridsan/groups/MAML-Soljacic/scienceclip/data/symmetry.pt')
-
-    # values to color by for different properties
-    values_colour_eform = [eform_values[mpid] for mpid in material_ids_test]
-    values_colour_bandgap = [bandgap_values[mpid] for mpid in material_ids_test]
-    values_colour_bandgap = np.array(values_colour_bandgap)
+    # data to color embeddings by 
+    bandgap = torch.load('./data/bandgap.pt')
+    eform = torch.load('./data/eform.pt')
+    values_colour_bandgap = np.array([bandgap[mpid] for mpid in material_ids_test])
+    values_colour_eform = [eform[mpid] for mpid in material_ids_test]
     threshold = 1e-9
     values_colour_metal = (values_colour_bandgap < threshold).astype(int)
-
-    cryst_syst = [symmetry_dict[mpid]['Crystal System'] for mpid in symmetry_dict.keys()]
+    
+    symmetry_dict = torch.load('./data/symmetry.pt')
     crystal_systems_colouring = [symmetry_dict[mpid]['Crystal System'] for mpid in material_ids_test]
     
-    # matplotlib.use('Agg')   # TODO
+    # matplotlib.use('Agg')
     # colour-code plot by formation energy ------------------------------------------------
     values_colour_eform = np.array(values_colour_eform)
 
@@ -172,7 +176,6 @@ def main():
     # Define a list of 7 distinct colors
     colors = ['red', 'green', 'blue', 'orange', 'purple', 'brown', 'pink']
 
-    # TODO: what alpha
     # colour-code plot by crystal system
     plt.figure(figsize=(6, 6))
     scatter = plt.scatter(embeddings_umap[:, 0], embeddings_umap[:, 1], c=crystal_system_indices, s=10, cmap=matplotlib.colors.ListedColormap(colors), alpha=0.2)

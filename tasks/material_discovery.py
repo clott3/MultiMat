@@ -3,7 +3,9 @@
 import pickle
 import argparse
 import sys
-sys.path.append('/home/gridsan/vmoro/scienceclip')    
+
+sys.path.append('.')  
+sys.path.append('../')      
 
 import numpy as np
 import torch
@@ -12,18 +14,17 @@ import matplotlib.pyplot as plt
 
 from src.model.PotNet.models.potnet import PotNet
 from src.model.transformer_dos import TransformerDOS
-from src.data.dataset.material_dataset import MatDataset
-from src.data.dataset.collate_functions import collate
+from src.data.materials_project.dataset.dataset import MatDataset
+from src.data.materials_project.dataset.collate_functions import collate
 from src.utils.utils import fix_seed, switch_mode
-from scripts.configs.potnet_config import potnet_config
+from config.potnet_config import potnet_config
 
 parser = argparse.ArgumentParser(description='Material discovery')
 
 # general
 parser.add_argument('--seed', type=int, default=42)
-parser.add_argument('--checkpoint_to_load', type=str, default='/home/gridsan/groups/MAML-Soljacic/scienceclip/checkpoints/potnet_anchored_clip_1e-5_train_test_split_2023-11-21__08_55_51/epoch_200.pt', help='Path to checkpoint to load')
-parser.add_argument('--projectors', action=argparse.BooleanOptionalAction, default=False, help='If checkpoint has projectors')
-parser.add_argument('--path_to_inverse_design_modality', type=str, default=None, help='Path to inverse design modality')
+parser.add_argument('--checkpoint_to_load', type=str, default='model.pt', help='Path to checkpoint to load')
+parser.add_argument('--projectors', action=argparse.BooleanOptionalAction, default=False, help='If checkpoint has projectors')      # NOTE: It's important to get this argument right and can be easy to miss 
 parser.add_argument('--batch_size', type=int, default=32) 
 parser.add_argument('--num_workers', type=int, default=16)
 parser.add_argument('--num_neighbours', type=int, default=25, help='Number of nearest neighbours to find')
@@ -67,7 +68,7 @@ def eval_material_discovery(
         range_interpolation=5, 
         n=1, 
         best=True,
-        dos_path=f'/home/gridsan/groups/MAML-Soljacic/scienceclip/data/dos.pt'):
+        dos_path=f'./data/dos.pt'):
     """
     material_ids_target are the material ids of the material discovery modality (dos)
     materials_ids_nearest_neighbours are the material ids of the nearest neighbour crystals for each dos sample
@@ -108,20 +109,23 @@ def eval_material_discovery(
                 n_mae = mae / area_target
 
                 if n_mae < best_n_mae:
-                    best_nmae = n_mae
+                    best_n_mae = n_mae
+
+            n_mae_append = best_n_mae
         else:
             dos_nn = dos_data[materials_ids_nearest_neighbours[i][n-1]]
             dos_nn_interp = torch.from_numpy(np.interp(energies, dos_nn[0, :], dos_nn[1, :]))
 
             mae = torch.trapz(torch.abs(dos_target_interp - dos_nn_interp), energies)
             n_mae = mae / area_target
+            n_mae_append = n_mae
 
         # For ~7 DOS samples, the area of the target DOS is zero which causes the normalized MSE 
         # to be NaN or Inf. These samples are excluded
         if area_target == 0:
             continue
 
-        n_mae_values.append(n_mae)
+        n_mae_values.append(n_mae_append)
 
     avg_n_mae = torch.mean(torch.tensor(n_mae_values))
     return avg_n_mae
@@ -136,7 +140,9 @@ def main():
     # dataset
     fix_seed(args.seed)
     modalities_to_include = ['crystal', 'dos', 'charge_density', 'bandgap', 'efermi', 'eform']
-    dataset = MatDataset(modalities=modalities_to_include, crystal_file='crystal_potnet.pt')
+    dataset = MatDataset(
+        modalities=modalities_to_include,
+        mask_non_intersect=False) 
 
     # split dataset
     train_dataset, validation_dataset, test_dataset = torch.utils.data.random_split(
@@ -172,7 +178,7 @@ def main():
     for modality in modalities:
         encoders[modality].load_state_dict(saved_state_dict[f'{modality}_state_dict'])
 
-        if args.projector:
+        if args.projectors:
             projectors[modality].load_state_dict(saved_state_dict[f'projection_matrix_' + modality + '_state_dict'])
             encoder_with_projector = nn.Sequential(encoders[modality], projectors[modality])
             encoders[modality] = encoder_with_projector
@@ -185,8 +191,7 @@ def main():
     representations = []
 
     # declare eval mode
-    dummy_models = {'crystal': nn.Identity(), args.inverse_design_modality: nn.Identity()}
-    switch_mode(modalities, [], encoders, dummy_models, None, mode='eval')
+    switch_mode(modalities, encoders, None, mode='eval')
 
     # get representations
     with torch.no_grad():
@@ -200,7 +205,7 @@ def main():
     representations = torch.cat(representations, dim=0)
 
     # get data loader for material discovery modality (dos)
-    dos_path = f'/home/gridsan/groups/MAML-Soljacic/scienceclip/data/dos.pt'
+    dos_path = f'./data/dos.pt'
     dataset_mat_discovery = MatDiscoveryDataset(material_ids=crystal_ids_test, material_discovery_modality_data_path=dos_path)
     
     data_loader_mat_discovery = torch.utils.data.DataLoader(
@@ -240,7 +245,7 @@ def main():
 
     # save material ids for the material discovery modality (dos) (from the test set) and the the 
     # corresponding nearest neighbor crystals (from the trains set)
-    with open('material_ids_inverse_design_nearest_neighbors_train_test_split_potnet_anchored_clip.pkl', 'wb') as f:
+    with open('material_ids_targets_and_nn_material_discovery.pkl', 'wb') as f:
         pickle.dump((dataset_mat_discovery.material_ids, closest_crystal_all_sampels), f)
 
     material_ids_targets = dataset_mat_discovery.material_ids
@@ -259,7 +264,7 @@ def main():
             range_interpolation=5,
             n=n_neighbours, 
             best=True, 
-            dos_path=f'/home/gridsan/groups/MAML-Soljacic/scienceclip/data/dos.pt')
+            dos_path=f'./data/dos.pt')
 
         avg_n_mae_vals.append(avg_n_mae)
 
@@ -289,9 +294,9 @@ def main():
 
     dos_data = torch.load(dos_path)
 
-    for mpid_target in mpids_targets:
+    for i, mpid_target in enumerate(mpids_targets):
         target_idx = material_ids_targets.index(mpid_target)
-        nearest_neigbour_id = closest_crystal_all_sampels[target_idx][0]
+        nearest_neigbour_id = material_ids_nearest_neighbours[target_idx][0]
         
         fig, ax = plt.subplots(figsize=(6, 4))
         ax.plot(dos_data[mpid_target][0,:], dos_data[mpid_target][1,:], label='Target DOS', color='blue', linewidth=2)
@@ -306,7 +311,7 @@ def main():
         ax.grid(True, which='both', linestyle='--', linewidth=0.5)
         plt.tight_layout() 
 
-        plt.savefig(f'material_discovery_examples.pdf', dpi=300) 
+        plt.savefig(f'material_discovery_examples_{i}.pdf', dpi=300) 
         plt.show()
 
 
