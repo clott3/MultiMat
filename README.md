@@ -12,7 +12,8 @@ A python3 environment can be created prior to this, e.g. `conda create -n multim
 
 
 ## Dataset
-Data to be downloaded from the Materials Project via the Materials Project API. (More details to be updated soon...)
+Data to be downloaded from the Materials Project via the Materials Project API. A small subset of the data is shown as example in 
+`data/` (More details to be updated soon...)
 
 ## Training
 ### MultiMat Training
