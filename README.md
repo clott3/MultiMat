@@ -25,5 +25,25 @@ Code can be run using `python multimat.py`
 ### Downstream tasks
 All downstream tasks can be found in the `tasks` folder (More details to be updated soon..)
 
+#### TODO: finetuning (I left this for you Charlotte to be sure it's right)
 
+#### Retrieval
 
+To perform cross-modality retrieval using a pre-trained MultiMAt model (and reproduce the corresponding figure from the paper), run 
+```
+python tasks/retrieval.py ----checkpoint_to_load PATH_TO_PRETRAINED_MULTIMAT_CHECKPOINT
+```
+
+#### Material Discovery via Latent Space Similarity
+
+To perform latent spaced-based material discovery using a pre-trained MultiMAt model (and reproduce the corresponding figures from the paper), run 
+```
+python tasks/material_discovery.py ----checkpoint_to_load PATH_TO_PRETRAINED_MULTIMAT_CHECKPOINT
+```
+
+#### Interpretability of crystal embeddings
+
+To interpret the crystal embeddings of a pre-trained MultiMAt model (and reproduce the corresponding figures from the paper), run 
+```
+python tasks/interpretability.py ----checkpoint_to_load PATH_TO_PRETRAINED_MULTIMAT_CHECKPOINT
+```
