@@ -670,7 +670,6 @@ def main_worker(gpu,args):
                     print(line_to_print)
                 if args.eval_only:
                     with open(f'./ft_logs/paper_{args.decoder_task}.txt', 'a+') as f:
-                    # with open(f'/gpfs/u/home/BNSS/BNSSlhch/scratch/scienceclip/ft_logs/paper_nov23_{args.decoder_task}.txt', 'a+') as f:
                         f.write(args.eval_ckpt + "\n" + line_to_print + "\n\n")
             # save best model on the val set
             for modality in args.modalities_encoders:
