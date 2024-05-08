@@ -30,7 +30,7 @@ class MatDataset(torch.utils.data.Dataset):
             data_path: str = './data/',
             non_normalize_targets: bool = False,
             scalars_to_use: list = [],
-            crystal_file: str = 'crystal.pt',
+            crystal_file: str = 'crystal_potnet.pt',
             file_to_keys: str = None,
             file_to_modalities_dicts: str = None,
             mask_non_intersect=True
