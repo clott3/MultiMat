@@ -13,7 +13,12 @@ A python3 environment can be created prior to this, e.g. `conda create -n multim
 
 ## Dataset
 Data to be downloaded from the Materials Project via the Materials Project API. A small subset of the data is shown as example in 
-`data/` (More details to be updated soon...)
+`example_data/` (More details to be updated soon...)
+For the experiments in the article, there are the following number of data entries for each modality: \
+**Crystal structure** (crystal_potnet.pt): 154 718 entries \
+**DOS** (dos.pt): 89 071 entries \
+**Charge density** (charge_density.pt): 121 915 entries \
+**Text** (mp_matbert_text_embeds.pt): 154 718 entries 
 
 ## Training
 ### MultiMat Training
