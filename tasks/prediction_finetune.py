@@ -38,7 +38,7 @@ parser = argparse.ArgumentParser(description='encoder-decoder training')
 
 # general
 parser.add_argument('--seed', type=int, default=42)
-parser.add_argument('--modalities_encoders', nargs='+', type=str, default=['crystal', 'dos', 'charge_density'], help='List of modalities for encoders')
+parser.add_argument('--modalities_encoders', nargs='+', type=str, default=['crystal'], help='List of modalities for encoders')
 parser.add_argument('--decoder_task', type=str, default='bandgap', help='Task for decoder. Can also be dos for encdec pre-training for example')
 parser.add_argument('--path_checkpoint', type=str, default='./checkpoints/')
 parser.add_argument('--wandb_project_name', type=str, default='scienceclip_ft_dist_experiments')   
@@ -90,9 +90,9 @@ parser.add_argument('--rank', type=int, default=0)
 parser.add_argument("--exp", default="test", type=str,
                         help="Name of experiment")
 parser.add_argument('--log_using', type=str, default='tb', choices=['tb','wandb','none'])
-parser.add_argument('--checkpoint-dir', type=Path, default='./saved_models/',
+parser.add_argument('--checkpoint-dir', type=Path, default='./ft_saved_models/',
                         metavar='DIR', help='path to checkpoint directory')
-parser.add_argument('--log-dir', type=Path , default='./logs/',
+parser.add_argument('--log-dir', type=Path , default='./ft_logs/',
                         metavar='LOGDIR', help='path to tensorboard log directory')
 parser.add_argument('--distribute', action='store_true'      )
 parser.add_argument('--eval_freq', type=int, default=1)
@@ -111,7 +111,7 @@ parser.add_argument('--script_dir', type=str, default=None)
 parser.add_argument('--pt_ckpt', type=str, default=None)
 parser.add_argument('--eval_ckpt', type=str, default=None)
 parser.add_argument('--no_scheduler', action = 'store_true')
-parser.add_argument('--crystal_arch', type=str, default='matformer', choices=['matformer','cgcnn','potnet'])
+parser.add_argument('--crystal_arch', type=str, default='potnet', choices=['matformer','cgcnn','potnet'])
 parser.add_argument('--fc_features', type=int, default=256)
 parser.add_argument('--from_nondist', action='store_true')
 parser.add_argument('--use_final_bn', action='store_true') # set to true for Barlow Twins
@@ -204,15 +204,15 @@ def main_worker(gpu,args):
     # dataset = MPDataset(modalities=modalities_to_include, normalize_targets=args.normalize_targets, data_path=args.data_path)   
     if args.crystal_arch == 'matformer':
         dataset = MatDataset(modalities=modalities_to_include, non_normalize_targets=args.non_normalize_targets, data_path=args.data_path, crystal_file='crystal.pt', \
-            file_to_keys=args.file_to_keys, file_to_modalities_dicts=args.file_to_modalities_dicts)
+            file_to_keys=args.file_to_keys, file_to_modalities_dicts=args.file_to_modalities_dicts, mask_non_intersect=False)
         collate_func = collate
     elif args.crystal_arch == 'cgcnn':
         dataset = MatDataset(modalities=modalities_to_include, non_normalize_targets=args.non_normalize_targets, data_path=args.data_path, crystal_file='crystal_cgcnn.pt', \
-            file_to_keys=args.file_to_keys, file_to_modalities_dicts=args.file_to_modalities_dicts)
+            file_to_keys=args.file_to_keys, file_to_modalities_dicts=args.file_to_modalities_dicts, mask_non_intersect=False)
         collate_func = collate_cgcnn
     elif args.crystal_arch == 'potnet':
         dataset = MatDataset(modalities=modalities_to_include, non_normalize_targets=args.non_normalize_targets, data_path=args.data_path, crystal_file='crystal_potnet.pt', \
-            file_to_keys=args.file_to_keys, file_to_modalities_dicts=args.file_to_modalities_dicts)
+            file_to_keys=args.file_to_keys, file_to_modalities_dicts=args.file_to_modalities_dicts, mask_non_intersect=False)
         collate_func = collate
     if not args.non_normalize_targets:
         decoder_task_mean = dataset.mean[args.decoder_task].cuda(gpu)
@@ -230,7 +230,7 @@ def main_worker(gpu,args):
         snumat = 'snumat_' if 'snumat_data' in args.data_path else ''
         
         if args.file_to_keys is None:
-            print(f"saving mpid keys to {args.checkpoint_dir}")
+            print(f"saving {len(dataset)} mpid keys to {args.checkpoint_dir}")
             mpid_path = os.path.join(args.checkpoint_dir, f'{snumat}{args.decoder_task}_{len(dataset)}_keys.pt')
             mpid_mod_path = os.path.join(args.checkpoint_dir, f'{snumat}{args.decoder_task}_{len(dataset)}_modalities_dict.pt')
             torch.save(dataset.keys, mpid_path)
@@ -247,13 +247,13 @@ def main_worker(gpu,args):
         test_perc = 100 - args.train_perc - args.val_perc
         if args.file_to_keys is not None and 'all_78461' in args.file_to_keys:
             print("Loading npy splits for 78k >>>>>> ")
-            npy_train_path = os.path.join(args.data_path, 'train_test_split2', f'78k_{args.decoder_task}_{args.train_perc}_{args.val_perc}_{test_perc}_train.npy')
-            npy_val_path = os.path.join(args.data_path, 'train_test_split2', f'78k_{args.decoder_task}_{args.train_perc}_{args.val_perc}_{test_perc}_val.npy')
-            npy_test_path = os.path.join(args.data_path, 'train_test_split2', f'78k_{args.decoder_task}_{args.train_perc}_{args.val_perc}_{test_perc}_test.npy')
+            npy_train_path = os.path.join(args.data_path, 'train_test_split', f'78k_{args.decoder_task}_{args.train_perc}_{args.val_perc}_{test_perc}_train.npy')
+            npy_val_path = os.path.join(args.data_path, 'train_test_split', f'78k_{args.decoder_task}_{args.train_perc}_{args.val_perc}_{test_perc}_val.npy')
+            npy_test_path = os.path.join(args.data_path, 'train_test_split', f'78k_{args.decoder_task}_{args.train_perc}_{args.val_perc}_{test_perc}_test.npy')
         else:
-            npy_train_path = os.path.join(args.data_path, 'train_test_split2', f'{snumat}{args.decoder_task}_{args.train_perc}_{args.val_perc}_{test_perc}_train.npy')
-            npy_val_path = os.path.join(args.data_path, 'train_test_split2', f'{snumat}{args.decoder_task}_{args.train_perc}_{args.val_perc}_{test_perc}_val.npy')
-            npy_test_path = os.path.join(args.data_path, 'train_test_split2', f'{snumat}{args.decoder_task}_{args.train_perc}_{args.val_perc}_{test_perc}_test.npy')
+            npy_train_path = os.path.join(args.data_path, 'train_test_split', f'{snumat}{args.decoder_task}_{args.train_perc}_{args.val_perc}_{test_perc}_train.npy')
+            npy_val_path = os.path.join(args.data_path, 'train_test_split', f'{snumat}{args.decoder_task}_{args.train_perc}_{args.val_perc}_{test_perc}_val.npy')
+            npy_test_path = os.path.join(args.data_path, 'train_test_split', f'{snumat}{args.decoder_task}_{args.train_perc}_{args.val_perc}_{test_perc}_test.npy')
         if os.path.exists(npy_train_path):
             train_indices = np.load(npy_train_path)
             val_indices = np.load(npy_val_path)
@@ -262,6 +262,7 @@ def main_worker(gpu,args):
             assert (len(train_indices)+len(val_indices)+len(test_indices) == len(dataset))    
 
         else:
+            os.makedirs(os.path.join(args.data_path, 'train_test_split'), exist_ok=True)
             # Shuffle the indices randomly
             indices = np.arange(len(dataset))
             np.random.shuffle(indices)

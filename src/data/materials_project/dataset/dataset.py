@@ -48,33 +48,33 @@ class MatDataset(torch.utils.data.Dataset):
         self.modalities = modalities
         self.scalars_to_use = scalars_to_use
         
-        self.path_to_crystal = data_path + crystal_file
-        self.path_to_dielectric = data_path + 'dielectric.pt'
-        self.path_to_efermi = data_path + 'efermi.pt'
-        self.path_to_eform = data_path + 'eform.pt'
+        self.path_to_crystal = os.path.join(data_path, crystal_file)
+        self.path_to_dielectric = os.path.join(data_path,'dielectric.pt')
+        self.path_to_efermi = os.path.join(data_path, 'efermi.pt')
+        self.path_to_eform = os.path.join(data_path, 'eform.pt')
         if mask_non_intersect:
-            self.path_to_dos = data_path + 'dos_allmpids.pt'
+            self.path_to_dos = os.path.join(data_path, 'dos_allmpids.pt')
         else:
-            self.path_to_dos = data_path + 'dos.pt'
-        self.path_to_bandgap = data_path + 'bandgap.pt'
-        self.path_to_is_metal = data_path + 'is_metal.pt'
-        self.path_to_bands = data_path + 'bands.pt'
+            self.path_to_dos = os.path.join(data_path, 'dos.pt')
+        self.path_to_bandgap = os.path.join(data_path, 'bandgap.pt')
+        self.path_to_is_metal = os.path.join(data_path, 'is_metal.pt')
+        self.path_to_bands = os.path.join(data_path, 'bands.pt')
         if mask_non_intersect:
             self.path_to_charge_density_tensors = os.path.join(data_path, 'charge_density_allmpids', 'tensors')
             self.path_to_charge_density_materials = os.path.join(data_path, 'charge_density_allmpids', 'material_ids.pt')
         else:
             self.path_to_charge_density_tensors = os.path.join(data_path, 'charge_density', 'tensors')
             self.path_to_charge_density_materials = os.path.join(data_path, 'charge_density', 'material_ids.pt')
-        self.path_to_dielectric = data_path + 'dielectric.pt'
-        self.path_to_dielectric_eig = data_path + 'dielectric_eig.pt'
-        self.path_to_bulk_modulus = data_path + 'bulk_modulus.pt'
-        self.path_to_shear_modulus = data_path + 'shear_modulus.pt'
-        self.path_to_elastic_tensor = data_path + 'elastic_tensor.pt'
-        self.path_to_compliance_tensor = data_path + 'compliance_tensor.pt'
+        self.path_to_dielectric = os.path.join(data_path, 'dielectric.pt')
+        self.path_to_dielectric_eig = os.path.join(data_path, 'dielectric_eig.pt')
+        self.path_to_bulk_modulus = os.path.join(data_path, 'bulk_modulus.pt')
+        self.path_to_shear_modulus = os.path.join(data_path, 'shear_modulus.pt')
+        self.path_to_elastic_tensor = os.path.join(data_path, 'elastic_tensor.pt')
+        self.path_to_compliance_tensor = os.path.join(data_path, 'compliance_tensor.pt')
         if mask_non_intersect:
-            self.path_to_text = data_path + 'mp_matbert_text_embeds_allmpids.pt'
+            self.path_to_text = os.path.join(data_path, 'mp_matbert_text_embeds_allmpids.pt')
         else:
-            self.path_to_text = data_path + 'mp_matbert_text_embeds.pt'
+            self.path_to_text = os.path.join(data_path, 'mp_matbert_text_embeds.pt')
 
         # modality to path
         self.modality_to_path = {
@@ -148,12 +148,13 @@ class MatDataset(torch.utils.data.Dataset):
             keys = set(modalities_dicts[self.modalities[0]].keys())
         except:
             keys = set(modalities_dicts['charge_density'])
+            
         for modality in modalities_dicts:
             if modality != 'charge_density':
                 keys = keys.intersection(set(modalities_dicts[modality].keys()))
             else:
                 keys = keys.intersection(set(modalities_dicts['charge_density']))
-
+        
         keys = list(keys)
         keys.sort(key=sort_key)   # need to sort since set is unordered --> causes problem when splitting dataset
 

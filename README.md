@@ -17,17 +17,32 @@ Data to be downloaded from the Materials Project via the Materials Project API. 
 
 ## Training
 ### MultiMat Training
-Code can be run using `python multimat.py` 
+Code can be run using ```python multimat.py --data_path PATH_TO_DATA_DIR --modalities_encoders 
+crystal dos --exp NAME_OF_EXPERIMENT``` 
+The above example performs MultiMat with two modalities, the crystal structure and the DOS. To toggle 
+between different modalities see the important flags below.
 
 #### Important Flags:
-(To be updated soon...)
+--modalities_encoder: list all the modalities to use during MultiMat training. Available modalities are 
+`crystal`, `dos`, `charge_density`, `text`.
+--mask_non_int: creates a mask so that all pairwise losses will be accounted for in the batch. 
+Missing entries for the DOS and charge_density modality will have losses set to zero. (only applicable 
+when using 3 or more modalities)  
 
 ### Downstream tasks
 All downstream tasks can be found in the `tasks` folder (More details to be updated soon..)
 
-#### TODO: finetuning (I left this for you Charlotte to be sure it's right)
+#### Property Prediction
+We fine-tune the crystal encoder pretrained with MultiMat for property prediction
+```
+python tasks/prediction_finetune.py --data_path PATH_TO_DATA_DIR --decoder_task bulk_modulus 
+--checkpoint_to_finetune PATH_TO_PRETRAINED_MULTIMAT_CHECKPOINT --exp NAME_OF_EXPERIMENT
+```
+the flag --decoder_task can be one of the following [`bulk_modulus`, `shear_modulus`, `elastic_tensor`, 
+`bandgap`]. For bandgap prediction on the SNUMAT database, the data path should be changed to that of 
+snumat data (e.g. ./example_data/snumat_data instead of ./example_data)
 
-#### Retrieval
+ #### Retrieval
 
 To perform cross-modality retrieval using a pre-trained MultiMAt model (and reproduce the corresponding figure from the paper), run 
 ```

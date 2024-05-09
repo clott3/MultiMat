@@ -34,7 +34,7 @@ parser = argparse.ArgumentParser(description='MultiMat-training')
 
 # general
 parser.add_argument('--seed', type=int, default=42)
-parser.add_argument('--modalities_encoders', nargs='+', type=str, default=['crystal', 'dos', 'charge_density'], help='List of modalities')
+parser.add_argument('--modalities_encoders', nargs='+', type=str, default=['crystal', 'dos', 'charge_density', 'text'], help='List of modalities')
 parser.add_argument('--path_checkpoint', type=str, default='./checkpoints/')
 parser.add_argument('--wandb_dir', type=str, default='./wandb_logs')   
 parser.add_argument('--wandb_api_key', type=str, default='')   
@@ -53,8 +53,8 @@ parser.add_argument('--data_path', type=str, default='./data/')
 # optimization
 parser.add_argument('--batch_size', type=int, default=128) 
 parser.add_argument('--lr', type=float, default=1e-4)
-parser.add_argument('--epochs', type=int, default=100) 
-parser.add_argument('--warmup_epochs', type=int, default=5)
+parser.add_argument('--epochs', type=int, default=500) 
+parser.add_argument('--warmup_epochs', type=int, default=10)
 parser.add_argument('--num_workers', type=int, default=16)
 parser.add_argument('--loss_function_name', type=str, default='anchored_clip', help='anchored_clip or all_pairs_clip or barlow_twins')
 
@@ -91,7 +91,7 @@ parser.add_argument('--script_name', type=str, default=None)
 parser.add_argument('--script_dir', type=str, default=None)
 parser.add_argument('--no_eval', action='store_true')
 parser.add_argument('--start_from_epoch', type=int, default=0)
-parser.add_argument('--crystal_arch', type=str, default='matformer', choices=['matformer','cgcnn','potnet'])
+parser.add_argument('--crystal_arch', type=str, default='potnet', choices=['matformer','cgcnn','potnet'])
 parser.add_argument('--fc_features', type=int, default=256)
 parser.add_argument('--lmda', type=float, default=0.0051)
 parser.add_argument('--use_proj', action='store_true')
@@ -100,7 +100,7 @@ parser.add_argument('--barlow_half', action='store_true') # set to true for Barl
 parser.add_argument('--mask_neg', action='store_true') # set to true for Barlow Twins
 parser.add_argument('--temp', type=float, default=0.2)
 parser.add_argument('--barlow_mask', action='store_true') # set to true for Barlow Twins
-parser.add_argument('--text_nonlinear', action='store_true') # set to true for Barlow Twins
+parser.add_argument('--text_nonlinear', action='store_true', default=True) # set to true for Barlow Twins
 parser.add_argument('--text_depth', type=int, default=3) # set to true for Barlow Twins
 parser.add_argument('--mask_non_int', action='store_true') # set to true for Barlow Twins
 parser.add_argument('--file_to_keys', type=str, default=None)
@@ -272,8 +272,7 @@ def main_worker(gpu, args):
     if 'charge_density' in args.modalities_encoders:
         charge_density_encoder = resnext50(embedding_dim=args.latent_dim, projector=args.use_proj, batch_norm=args.use_final_bn).cuda(gpu)
     if 'text' in args.modalities_encoders: 
-        inputdim=4096 if args.text_from == 'llama2' else 768
-        text_encoder = TextMLP(input_dim=inputdim,latent_dim=args.latent_dim, non_linear=args.text_nonlinear).cuda(gpu)
+        text_encoder = TextMLP(input_dim=768,latent_dim=args.latent_dim, non_linear=args.text_nonlinear).cuda(gpu)
         print(f"Total text encoder params: {sum(p.numel() for p in text_encoder.parameters())}")
         if args.use_proj:
             raise NotImplementedError
@@ -386,11 +385,10 @@ def main_worker(gpu, args):
             else:
                 data = data_
             
-            if (args.optim == 'lars' or args.optim == 'sgd') and not args.no_scheduler:
-                lr = adjust_learning_rate(args, optimizer, train_loader, step)
+            lr = adjust_learning_rate(args, optimizer, train_loader, step)
             
             # change tensors to device
-            modalities_all = args.modalities_encoders + args.downstream_tasks
+            modalities_all = args.modalities_encoders 
             data = tensors_to_cuda(modalities_all, data, gpu)
             if args.mask_non_int:
                 args.mask = create_mask_to_cuda(exist_labels, args, gpu)

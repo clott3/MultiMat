@@ -11,7 +11,7 @@ def eval_loop(modalities_encoders, downstream_tasks, encoders, heads, test_loade
     
     # declare eval
     not_needed = {modality: nn.Identity() for modality in modalities_encoders}
-    switch_mode(modalities_encoders, downstream_tasks, encoders, not_needed, heads, mode='eval')
+    switch_mode(modalities_encoders, encoders, heads, mode='eval')
     # activation functionsneeded since for some tasks (e.g is_metal) a sigmoid or softmax is combined with the loss function
     # activation_funcs = {'bandgap': nn.Identity(), 'efermi': nn.Identity(), 'eform': nn.Identity(), 'is_metal': nn.Sigmoid()}
     tasks_sigmoid = ['is_metal']
@@ -79,7 +79,7 @@ def eval_encoder_decoder(modalities_encoders,
 
     # declare eval
     not_needed = {modality: nn.Identity() for modality in modalities_encoders}
-    switch_mode(modalities_encoders, [], encoders, decoders, {}, mode='eval')
+    switch_mode(modalities_encoders, encoders, decoders, mode='eval')
 
     # activation functionsneeded since for some tasks (e.g is_metal) a sigmoid or softmax is combined with the loss function
     # activation_funcs = {'bandgap': nn.Identity(), 'efermi': nn.Identity(), 'eform': nn.Identity(), 'is_metal': nn.Sigmoid(), 
