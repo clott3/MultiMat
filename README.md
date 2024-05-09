@@ -17,20 +17,24 @@ Data to be downloaded from the Materials Project via the Materials Project API. 
 
 ## Training
 ### MultiMat Training
-Code can be run using ```python multimat.py --data_path PATH_TO_DATA_DIR --modalities_encoders 
-crystal dos --exp NAME_OF_EXPERIMENT``` 
+Code can be run using 
+```
+python multimat.py --data_path PATH_TO_DATA_DIR --modalities_encoders 
+crystal dos --exp NAME_OF_EXPERIMENT
+``` 
 The above example performs MultiMat with two modalities, the crystal structure and the DOS. To toggle 
 between different modalities see the important flags below.
 
 #### Important Flags:
 --modalities_encoder: list all the modalities to use during MultiMat training. Available modalities are 
 `crystal`, `dos`, `charge_density`, `text`.
+
 --mask_non_int: creates a mask so that all pairwise losses will be accounted for in the batch. 
 Missing entries for the DOS and charge_density modality will have losses set to zero. (only applicable 
 when using 3 or more modalities)  
 
 ### Downstream tasks
-All downstream tasks can be found in the `tasks` folder (More details to be updated soon..)
+All downstream tasks can be found in the `tasks` folder 
 
 #### Property Prediction
 We fine-tune the crystal encoder pretrained with MultiMat for property prediction
@@ -46,19 +50,19 @@ snumat data (e.g. ./example_data/snumat_data instead of ./example_data)
 
 To perform cross-modality retrieval using a pre-trained MultiMAt model (and reproduce the corresponding figure from the paper), run 
 ```
-python tasks/retrieval.py ----checkpoint_to_load PATH_TO_PRETRAINED_MULTIMAT_CHECKPOINT
+python tasks/retrieval.py --checkpoint_to_load PATH_TO_PRETRAINED_MULTIMAT_CHECKPOINT
 ```
 
 #### Material Discovery via Latent Space Similarity
 
 To perform latent spaced-based material discovery using a pre-trained MultiMAt model (and reproduce the corresponding figures from the paper), run 
 ```
-python tasks/material_discovery.py ----checkpoint_to_load PATH_TO_PRETRAINED_MULTIMAT_CHECKPOINT
+python tasks/material_discovery.py --checkpoint_to_load PATH_TO_PRETRAINED_MULTIMAT_CHECKPOINT
 ```
 
 #### Interpretability of crystal embeddings
 
 To interpret the crystal embeddings of a pre-trained MultiMAt model (and reproduce the corresponding figures from the paper), run 
 ```
-python tasks/interpretability.py ----checkpoint_to_load PATH_TO_PRETRAINED_MULTIMAT_CHECKPOINT
+python tasks/interpretability.py --checkpoint_to_load PATH_TO_PRETRAINED_MULTIMAT_CHECKPOINT
 ```
