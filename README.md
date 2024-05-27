@@ -12,8 +12,9 @@ A python3 environment can be created prior to this, e.g. `conda create -n multim
 
 
 ## Dataset
-Data to be downloaded from the Materials Project via the Materials Project API. A small subset of the data is shown as example in 
-`example_data/` (More details to be updated soon...)
+Data to be downloaded from the Materials Project via the Materials Project API. A small subset of the data is shown in 
+`example_data/` where each modality is stored as a separate pytorch file (.pt). In this small subset, there are 408 crystals, and around 100 data entries each for the DOS, text and charge_density modalities. Users can use follow this format to store the data files.
+
 For the experiments in the article, there are the following number of data entries for each modality: \
 **Crystal structure** (crystal_potnet.pt): 154 718 entries \
 **DOS** (dos.pt): 89 071 entries \
@@ -36,7 +37,7 @@ between different modalities see the important flags below.
 
 --mask_non_int: creates a mask so that all pairwise losses will be accounted for in the batch. 
 Missing entries for the DOS and charge_density modality will have losses set to zero. (only applicable 
-when using 3 or more modalities)  
+when using 3 or more modalities). Results in the paper sets this to True.
 
 ### Downstream tasks
 All downstream tasks can be found in the `tasks` folder 
