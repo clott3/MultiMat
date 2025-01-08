@@ -1,5 +1,6 @@
 # All-pairs CLIP where the normal CLIP loss is used pairwise between all modalities and then added together.
 
+
 import itertools
 import torch
 from torch.nn import functional as F
